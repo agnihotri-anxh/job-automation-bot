@@ -1,0 +1,201 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "1a4a7536-f8a4-4a2c-9e40-257b527cd645",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://remotive.com/api/remote-jobs",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        192,
+        64
+      ],
+      "id": "fd7fc9d3-876f-4b69-b059-13268df74964",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "const jobs = items[0].json.jobs;\n\nreturn jobs.map(job => {\n  return {\n    json: {\n      id: job.id,\n      title: job.title?.trim(),\n      company: job.company_name?.trim(),\n      category: job.category || \"Not Provided\",\n      job_type: job.job_type || \"Not Provided\",\n      location: job.candidate_required_location || \"Worldwide\",\n      salary: job.salary || \"Not Provided\",\n      posted_on: job.publication_date,\n      job_url: job.url,\n      source: \"Remotive\",\n      source_link: \"https://remotive.com\"\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        -64
+      ],
+      "id": "5248912f-b917-4634-98cd-e49b76970f4a",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "CREATE TABLE IF NOT EXISTS jobs (\n  id SERIAL PRIMARY KEY,\n  job_id INT,\n  title TEXT,\n  company TEXT,\n  category TEXT,\n  job_type TEXT,\n  location TEXT,\n  salary TEXT,\n  posted_on TEXT,\n  job_url TEXT UNIQUE,\n  source TEXT,\n  created_at TIMESTAMP DEFAULT NOW()\n);\n\nINSERT INTO jobs\n(job_id,title,company,category,job_type,location,salary,posted_on,job_url,source)\nVALUES (\n  {{$json.id}},\n  '{{$json.title}}',\n  '{{$json.company}}',\n  '{{$json.category}}',\n  '{{$json.job_type}}',\n  '{{$json.location}}',\n  '{{$json.salary}}',\n  '{{$json.posted_on}}',\n  '{{$json.job_url}}',\n  '{{$json.source}}'\n)\nON CONFLICT (job_url)\nDO UPDATE SET job_url = EXCLUDED.job_url\nRETURNING *;\n\n\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        608,
+        96
+      ],
+      "id": "030d7f89-f490-4be4-ac0a-e96a20a1dfd2",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "postgres": {
+          "id": "BAgRSdY0igtPRTIF",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "databaseId": {
+          "__rl": true,
+          "value": "https://www.notion.so/2d593c5e83b4807e93b6d28dcb3dfb0f?v=2d593c5e83b480c6a584000cf3d04e19&source=copy_link",
+          "mode": "url"
+        },
+        "title": "={{ $json.title }}",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Category|rich_text",
+              "textContent": "={{ $json.company }}"
+            },
+            {
+              "key": "Category|rich_text",
+              "textContent": "={{ $json.category }}"
+            },
+            {
+              "key": "Company|rich_text",
+              "textContent": "={{ $json.company }}"
+            },
+            {
+              "key": "Job Type|rich_text",
+              "textContent": "={{ $json.job_type }}"
+            },
+            {
+              "key": "Location|rich_text",
+              "textContent": "={{ $json.location }}"
+            },
+            {
+              "key": "Salary|rich_text",
+              "textContent": "={{ $json.salary }}"
+            },
+            {
+              "key": "Posted On|date",
+              "date": "={{ $json.posted_on }}"
+            },
+            {
+              "key": "Source|rich_text",
+              "textContent": "={{ $json.source }}"
+            },
+            {
+              "key": "Job URL|url",
+              "urlValue": "={{ $json.job_url }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        784,
+        -64
+      ],
+      "id": "b90e24ff-373a-462e-a3df-8d2da3f5a732",
+      "name": "Create a database page",
+      "credentials": {
+        "notionApi": {
+          "id": "RUxAj5FlrLGg3C0y",
+          "name": "Notion account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "Create a database page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "timeSavedPerExecution": 30
+  },
+  "versionId": "7668d329-2e5b-48c4-8244-9543a943d3e8",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "9141fbf0cb69dbc0a73173082b70aa9684ca47e7070065ecd0010b02d09dbd2d"
+  },
+  "id": "slp7skDhIDwwenae",
+  "tags": []
+}
